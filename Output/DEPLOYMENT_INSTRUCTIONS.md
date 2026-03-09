@@ -1,6 +1,6 @@
 # Siderise Security Badge Printer - Intune Deployment Instructions
 
-## Version: 1.2.0
+## Version: 1.2.1
 
 ## Files in this package:
 - SecurityBadgePrinter.intunewin - The packaged application
@@ -17,7 +17,7 @@
    - Name: Siderise Security Badge Printer
    - Description: Professional security badge printing application for Siderise
    - Publisher: Siderise
-   - Version: 1.2.0
+   - Version: 1.2.1
 
 3. **Program Configuration**
    - Install command: 

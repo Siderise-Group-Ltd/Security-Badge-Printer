@@ -13,6 +13,7 @@ using SecurityBadgePrinter.Services;
 using SkiaSharp;
 using System.Text;
 using System.Threading;
+using System.Windows.Input;
 
 namespace SecurityBadgePrinter
 {
@@ -759,6 +760,21 @@ namespace SecurityBadgePrinter
             if (PreviewFrame != null) PreviewFrame.BorderThickness = new Thickness(0);
             PrintButton.IsEnabled = false;
             PrintSelectedButton.IsEnabled = false;
+        }
+
+        private void OnResultsListPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            // Forward mouse wheel events to the parent ScrollViewer for smooth scrolling
+            if (!e.Handled && ResultsScrollViewer != null)
+            {
+                e.Handled = true;
+                var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+                {
+                    RoutedEvent = UIElement.MouseWheelEvent,
+                    Source = sender
+                };
+                ResultsScrollViewer.RaiseEvent(eventArg);
+            }
         }
 
         private async void OnResultSelected(object sender, SelectionChangedEventArgs e)
