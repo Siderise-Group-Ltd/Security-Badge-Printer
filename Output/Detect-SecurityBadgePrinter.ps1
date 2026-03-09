@@ -4,11 +4,11 @@ Detection script for Siderise Security Badge Printer
 
 .DESCRIPTION
 Checks if the application is installed and verifies the version.
-Returns exit code 0 if the application is installed with version 1.2.2.0 exactly.
+Returns exit code 0 if the application is installed with version 1.2.3.0 exactly.
 Returns exit code 1 if not installed or version does not match.
 #>
 
-$requiredVersion = [Version]"1.2.2.0"
+$requiredVersion = [Version]"1.2.3.0"
 
 # Check both possible installation paths (64-bit and 32-bit redirected)
 $installPaths = @(

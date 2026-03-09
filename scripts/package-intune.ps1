@@ -217,6 +217,19 @@ Write-Log "=== Siderise Security Badge Printer Installation ==="
 Write-Log "Log file: `$logFile"
 Write-Log "Install path: `$installPath"
 
+# Stop any running instances of the application
+try {
+    `$runningProcesses = Get-Process -Name "SecurityBadgePrinter" -ErrorAction SilentlyContinue
+    if (`$runningProcesses) {
+        Write-Log "Stopping running instances of SecurityBadgePrinter..."
+        `$runningProcesses | Stop-Process -Force -ErrorAction Stop
+        Start-Sleep -Seconds 2
+        Write-Log "Stopped `$(`$runningProcesses.Count) running instance(s)"
+    }
+} catch {
+    Write-Log "WARNING: Failed to stop running processes: `$(`$_.Exception.Message)"
+}
+
 # Create installation directory
 try {
     if (-not (Test-Path `$installPath)) {

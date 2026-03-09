@@ -12,9 +12,9 @@
     <AssemblyCompany>Siderise</AssemblyCompany>
     <AssemblyProduct>Siderise Security Badge Printer</AssemblyProduct>
     <AssemblyCopyright> Siderise. All rights reserved.</AssemblyCopyright>
-    <Version>1.2.2</Version>
-    <AssemblyVersion>1.2.2.0</AssemblyVersion>
-    <FileVersion>1.2.2.0</FileVersion>
+    <Version>1.2.3</Version>
+    <AssemblyVersion>1.2.3.0</AssemblyVersion>
+    <FileVersion>1.2.3.0</FileVersion>
     <!-- Embed app icon into EXE if an .ico is available -->
     <ApplicationIcon Condition="Exists('Assets\\favicon.ico')">Assets\favicon.ico</ApplicationIcon>
     <ApplicationIcon Condition="Exists('Assets\\logo.ico')">Assets\logo.ico</ApplicationIcon>
