@@ -18,7 +18,7 @@ namespace SecurityBadgePrinter.Services
         private const float Dpi = 300f;
         private const float PhotoBorderStroke = 8f; // px thickness of the photo border
 
-        public SKBitmap Render(string displayName, string jobTitle, string department, string upn, SKBitmap? photo)
+        public SKBitmap Render(string displayName, string jobTitle, string department, string upn, IList<string> proxyAddresses, SKBitmap? photo)
         {
             var badge = new SKBitmap(Width, Height);
             using var canvas = new SKCanvas(badge);
@@ -45,34 +45,47 @@ namespace SecurityBadgePrinter.Services
             float rightW = Width - rightMargin - rightX;
             float cursorY = topMargin;
 
-            // Top brand logo image - positioned like mockup (top right)
+            // Generate QR for top left of right panel
+            int qrSize = 140; // QR size
+            string qrContent = BuildQr(upn, proxyAddresses);
+            using var qr = GenerateQrBitmap(qrContent, qrSize, brandNavy);
+            
+            // Top brand logo image - positioned to right of QR at top
             var logo = LoadLogoBitmap();
+            float logoW = 0f;
+            float logoH = 0f;
             if (logo != null)
             {
-                float targetLogoH = 75f; // larger logo for better text readability
+                float targetLogoH = 80f; // 80px logo height
                 float scale = targetLogoH / logo.Height;
-                float logoW = logo.Width * scale;
-                float logoH = targetLogoH;
-                float logoX = (float)Math.Round(rightX + (rightW - logoW));
-                float logoY = (float)Math.Round(cursorY + 10);
+                logoW = logo.Width * scale;
+                logoH = targetLogoH;
+            }
+            
+            // Calculate spacing to center QR and logo together in top area
+            float spacing = 20f; // Space between QR and logo
+            float totalWidth = qr.Width + spacing + logoW;
+            float startX = rightX + (rightW - totalWidth) / 2f; // Center both elements
+            
+            // QR positioning: left side of centered group
+            int qrX = (int)Math.Round(startX);
+            int qrY = (int)(cursorY + 10);
+            var qrRect = new SKRect(qrX, qrY, qrX + qr.Width, qrY + qr.Height);
+            
+            // Logo positioning: right side of centered group, aligned with QR
+            if (logo != null)
+            {
+                float logoX = startX + qr.Width + spacing;
+                float logoY = qrY + (qr.Height - logoH) / 2f; // Vertically center with QR
                 using var logoPaint = new SKPaint { IsAntialias = true, FilterQuality = SKFilterQuality.High };
                 canvas.DrawBitmap(logo, new SKRect(logoX, logoY, logoX + logoW, logoY + logoH), logoPaint);
             }
-            // Generate QR for bottom right positioning like mockup
-            int qrSize = 140; // Smaller QR like in mockup
-            string qrContent = BuildQr(upn);
-            using var qr = GenerateQrBitmap(qrContent, qrSize, brandNavy);
-            
-            // QR positioning: bottom-right corner like mockup
-            int qrX = (int)(rightX + rightW - qr.Width);
-            int qrY = (int)(Height - bottomMargin - qr.Height);
-            var qrRect = new SKRect(qrX, qrY, qrX + qr.Width, qrY + qr.Height);
 
             // Calculate available vertical space for text distribution
-            float availableTextHeight = qrY - (topMargin + 80) - 20; // Space between logo area and QR, minus buffer
+            float availableTextHeight = Height - (topMargin + 180) - bottomMargin - 20; // Space for text below QR/logo area
             
-            // Start text positioning from top
-            cursorY = topMargin + 115; // More space for larger logo area
+            // Start text positioning below QR/logo area
+            cursorY = topMargin + 180; // More space for QR and logo at top, text starts lower
 
             // Name - large and prominent, using full width initially
             using (var namePaint = new SKPaint
@@ -91,7 +104,7 @@ namespace SecurityBadgePrinter.Services
             }
 
             // Add more generous spacing between name and role
-            cursorY += 35;
+            cursorY += 45;
 
             // Job Title - blue and prominent, also using full width
             using (var rolePaint = new SKPaint
@@ -113,7 +126,7 @@ namespace SecurityBadgePrinter.Services
             }
 
             // Add more generous spacing between role and department
-            cursorY += 30;
+            cursorY += 40;
 
             // Department - navy and appropriately sized
             using (var deptPaint = new SKPaint
@@ -121,25 +134,21 @@ namespace SecurityBadgePrinter.Services
                 IsAntialias = true,
                 Color = brandNavy,
                 TextSize = 40, // Slightly larger department text
-                Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Normal)
+                Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyle.Bold)
             })
             {
                 var deptText = string.IsNullOrWhiteSpace(department) ? "" : department.Trim();
                 if (!string.IsNullOrEmpty(deptText))
                 {
-                    // Check if department text would overlap with QR code
-                    float estimatedDeptHeight = 60f; // Conservative estimate for department text height
-                    bool wouldOverlapQR = (cursorY + estimatedDeptHeight) > qrY;
-                    
-                    // Use full width if no overlap, otherwise constrain to avoid QR
-                    float deptWidth = wouldOverlapQR ? (qrX - rightX - 20f) : rightW;
+                    // Use full width for department text (no bottom elements to avoid)
+                    float deptWidth = rightW;
                     
                     cursorY += DrawAdaptiveText(canvas, deptText, rightX, cursorY, deptWidth, deptPaint,
                         preferredSize: 40f, minSize: 28f, maxLines: 2, lineSpacing: 4f, preferSingleLine: false);
                 }
             }
 
-            // Render QR
+            // Render QR at top
             canvas.DrawBitmap(qr, qrX, qrY);
 
             // Email/UPN text is intentionally removed per request
@@ -424,13 +433,46 @@ namespace SecurityBadgePrinter.Services
             return ($"{parts[0][0]}{parts[^1][0]}").ToUpperInvariant();
         }
 
-        public static string BuildQr(string upn)
+        public static string BuildQr(string upn, IList<string>? proxyAddresses = null)
         {
-            // Requested format: "{" + "C" + local-part of UPN (before '@') + "}"
+            // Requested format: "{" + "C" + 3-letter alias + "}"
+            // First check if UPN has a 3-letter local part
             var local = upn;
             var at = upn.IndexOf('@');
             if (at > 0) local = upn.Substring(0, at);
-            return "{" + "C" + local + "}";
+            
+            // If UPN local part is exactly 3 letters, use it
+            if (local.Length == 3 && local.All(char.IsLetter))
+            {
+                return "{" + "C" + local.ToUpperInvariant() + "}";
+            }
+            
+            // Otherwise, search proxyAddresses for a 3-letter alias
+            if (proxyAddresses != null)
+            {
+                foreach (var addr in proxyAddresses)
+                {
+                    // proxyAddresses format: "SMTP:email@domain.com" or "smtp:email@domain.com"
+                    var email = addr;
+                    if (email.StartsWith("SMTP:", StringComparison.OrdinalIgnoreCase))
+                        email = email.Substring(5);
+                    else if (email.StartsWith("smtp:", StringComparison.OrdinalIgnoreCase))
+                        email = email.Substring(5);
+                    
+                    var atPos = email.IndexOf('@');
+                    if (atPos > 0)
+                    {
+                        var localPart = email.Substring(0, atPos);
+                        if (localPart.Length == 3 && localPart.All(char.IsLetter))
+                        {
+                            return "{" + "C" + localPart.ToUpperInvariant() + "}";
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: use whatever the UPN local part is (even if not 3 letters)
+            return "{" + "C" + local.ToUpperInvariant() + "}";
         }
 
         public static SKBitmap? LoadSkBitmapFromStream(Stream stream)

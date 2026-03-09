@@ -178,7 +178,7 @@ namespace SecurityBadgePrinter
                         // Get group members
                         var gresp = await _graph.Groups[gid].Members.GraphUser.GetAsync(r =>
                         {
-                            r.QueryParameters.Select = new[] { "id", "displayName", "givenName", "surname", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled" };
+                            r.QueryParameters.Select = new[] { "id", "displayName", "givenName", "surname", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled", "proxyAddresses" };
                             r.QueryParameters.Top = 999;
                         });
                         foreach (var u in (gresp?.Value ?? new List<User>()))
@@ -349,7 +349,7 @@ namespace SecurityBadgePrinter
 
                     var gresp = await _graph.Groups[gid].Members.GraphUser.GetAsync(r =>
                     {
-                        r.QueryParameters.Select = new[] { "id", "displayName", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled" };
+                        r.QueryParameters.Select = new[] { "id", "displayName", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled", "proxyAddresses" };
                         r.QueryParameters.Top = 999;
                     }, token);
 
@@ -410,7 +410,8 @@ namespace SecurityBadgePrinter
             var upn = user.UserPrincipalName ?? string.Empty;
             var role = user.JobTitle ?? string.Empty;
             var dept = user.Department ?? string.Empty;
-            return _renderer.Render(displayName, role, dept, upn, photoBmp);
+            var proxyAddresses = user.ProxyAddresses ?? new List<string>();
+            return _renderer.Render(displayName, role, dept, upn, proxyAddresses, photoBmp);
         }
 
         private async void OnPrintSelectedClick(object sender, RoutedEventArgs e)
@@ -693,7 +694,7 @@ namespace SecurityBadgePrinter
 
                         var gresp = await _graph.Groups[gid].Members.GraphUser.GetAsync(r =>
                         {
-                            r.QueryParameters.Select = new[] { "id", "displayName", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled" };
+                            r.QueryParameters.Select = new[] { "id", "displayName", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled", "proxyAddresses" };
                             r.QueryParameters.Top = 999;
                         });
                         foreach (var u in (gresp?.Value ?? new List<User>()))
@@ -710,7 +711,7 @@ namespace SecurityBadgePrinter
                 var filter = string.Join(" and ", filters);
                 var resp = await _graph.Users.GetAsync(r =>
                 {
-                    r.QueryParameters.Select = new[] { "id", "displayName", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled" };
+                    r.QueryParameters.Select = new[] { "id", "displayName", "userPrincipalName", "jobTitle", "department", "officeLocation", "mail", "accountEnabled", "proxyAddresses" };
                     r.QueryParameters.Filter = filter;
                     r.QueryParameters.Orderby = new[] { "displayName" };
                     r.QueryParameters.Top = 50;
