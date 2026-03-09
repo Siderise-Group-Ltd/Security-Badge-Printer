@@ -1,14 +1,14 @@
-﻿<#
+<#
 .SYNOPSIS
 Detection script for Siderise Security Badge Printer
 
 .DESCRIPTION
 Checks if the application is installed and verifies the version.
-Returns exit code 0 if the application is installed with version 1.1.4 or higher.
-Returns exit code 1 if not installed or version is lower.
+Returns exit code 0 if the application is installed with version 1.1.6.0 exactly.
+Returns exit code 1 if not installed or version does not match.
 #>
 
-$requiredVersion = [Version]"1.1.4.0"
+$requiredVersion = [Version]"1.1.6.0"
 
 # Check both possible installation paths (64-bit and 32-bit redirected)
 $installPaths = @(
@@ -27,8 +27,8 @@ foreach ($path in $installPaths) {
         if ($foundVersion) {
             try {
                 $installedVer = [Version]$foundVersion
-                if ($installedVer -ge $requiredVersion) {
-                    Write-Host "Siderise Security Badge Printer version $installedVer is installed at $path (required: $requiredVersion)"
+                if ($installedVer -eq $requiredVersion) {
+                    Write-Host "Siderise Security Badge Printer version $installedVer is installed at $path"
                     Exit 0
                 }
             } catch {
@@ -41,7 +41,7 @@ foreach ($path in $installPaths) {
 
 # If we found it but version is wrong
 if ($foundPath) {
-    Write-Host "Installed version $foundVersion is lower than required version $requiredVersion"
+    Write-Host "Installed version $foundVersion does not match required version $requiredVersion"
     Exit 1
 }
 

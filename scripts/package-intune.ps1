@@ -5,9 +5,10 @@ Package Siderise Security Badge Printer for Microsoft Intune deployment
 .DESCRIPTION
 This script:
 1. Builds the application in Release mode (self-contained, win-x64)
-2. Packages it using IntuneWinAppUtil.exe
-3. Creates a version-based detection script
-4. Outputs both files to the Output folder for Intune deployment
+2. Optionally signs the executables with a code signing certificate
+3. Packages it using IntuneWinAppUtil.exe
+4. Creates a version-based detection script
+5. Outputs both files to the Output folder for Intune deployment
 
 .PARAMETER ProjectRoot
 Root directory of the project. Defaults to parent of scripts folder.
@@ -18,15 +19,34 @@ Build configuration. Default: Release
 .PARAMETER Runtime
 Target runtime. Default: win-x64
 
+.PARAMETER PfxPath
+Path to the code signing certificate (PFX file). If not provided, looks for SideriseBadgePrinterCert.pfx in project root.
+
+.PARAMETER PfxPassword
+Password for the PFX file. If not provided, will prompt.
+
+.PARAMETER SkipSigning
+Skip code signing (not recommended for production).
+
+.PARAMETER TimestampUrl
+Timestamp server URL for code signing. Default: http://timestamp.digicert.com
+
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File .\scripts\package-intune.ps1
+
+.EXAMPLE
+powershell -ExecutionPolicy Bypass -File .\scripts\package-intune.ps1 -PfxPath "C:\certs\mycert.pfx"
 #>
 
 [CmdletBinding()]
 param(
   [string]$ProjectRoot,
   [string]$Configuration = "Release",
-  [string]$Runtime = "win-x64"
+  [string]$Runtime = "win-x64",
+  [string]$PfxPath,
+  [SecureString]$PfxPassword,
+  [switch]$SkipSigning,
+  [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -34,6 +54,38 @@ Set-StrictMode -Version Latest
 
 function Resolve-ProjectRoot {
   return (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+}
+
+function Get-SignTool {
+  $ci = Get-Command signtool.exe -ErrorAction SilentlyContinue
+  if ($ci) {
+    $p = $ci.Path
+    if (-not $p -and ($ci.PSObject.Properties["Definition"])) { $p = $ci.Definition }
+    if ($p) { return $p }
+  }
+  $probable = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match "\\x64\\signtool\.exe$" } |
+              Sort-Object FullName -Descending | Select-Object -First 1
+  if ($probable) { return $probable.FullName }
+  return $null
+}
+
+function Import-PfxToUserStore {
+  param([string]$Path,[SecureString]$Password)
+  if (-not (Test-Path $Path)) { throw "PFX not found: $Path" }
+  if (-not $Password) { $Password = Read-Host -Prompt "Enter PFX password" -AsSecureString }
+  $cert = Import-PfxCertificate -FilePath $Path -Password $Password -CertStoreLocation Cert:\CurrentUser\My
+  if (-not $cert) { throw "Failed to import PFX certificate." }
+  return $cert.Thumbprint
+}
+
+function Invoke-Sign {
+  param([string]$SignTool,[string]$Thumb,[string]$Path,[string]$Timestamp)
+  $output = & $SignTool sign /fd sha256 /sha1 $Thumb $Path 2>&1
+  if ($LASTEXITCODE -ne 0) { 
+    Write-Host "SignTool output: $output" -ForegroundColor Red
+    throw "SignTool failed for: $Path" 
+  }
 }
 
 # --- Begin ---
@@ -44,19 +96,20 @@ $root = if ($ProjectRoot) { $ProjectRoot } else { Resolve-ProjectRoot }
 $proj = Join-Path $root "SecurityBadgePrinter\SecurityBadgePrinter.csproj"
 if (-not (Test-Path $proj)) { throw "Project file not found: $proj" }
 
-# Output directories
-$publishDir = Join-Path $root "out\intune-publish"
-$outputDir = Join-Path $root "Output"
+# Output directories - use temp to avoid OneDrive locking
+$tempBase = Join-Path $env:TEMP "SideriseBadgePrinter-Build"
+$publishDir = Join-Path $tempBase "intune-publish"
 $sourceDir = Join-Path $publishDir "Source"
+$outputDir = Join-Path $root "Output"
 
 # Clean and create directories
-if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+if (Test-Path $tempBase) { Remove-Item $tempBase -Recurse -Force }
 if (Test-Path $outputDir) { Remove-Item $outputDir -Recurse -Force }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
 
-Write-Host "[1/5] Publishing application ($Configuration, $Runtime)..." -ForegroundColor Cyan
+Write-Host "[1/7] Publishing application ($Configuration, $Runtime)..." -ForegroundColor Cyan
 & dotnet publish $proj -c $Configuration -r $Runtime --self-contained true `
   -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true `
@@ -69,14 +122,61 @@ $exePath = Join-Path $sourceDir "SecurityBadgePrinter.exe"
 if (-not (Test-Path $exePath)) { throw "Built EXE not found: $exePath" }
 
 # Get version from the built executable
-Write-Host "[2/5] Reading version information..." -ForegroundColor Cyan
+Write-Host "[2/7] Reading version information..." -ForegroundColor Cyan
 $ver = (Get-Item $exePath).VersionInfo.FileVersion
 if (-not $ver) { $ver = "1.0.0.0" }
 $ver3 = ($ver -replace '^(\d+\.\d+\.\d+).*','$1')
 Write-Host "    Version: $ver3" -ForegroundColor Green
 
+# Code signing
+$thumbprint = $null
+if (-not $SkipSigning) {
+    Write-Host "[3/7] Code signing application..." -ForegroundColor Cyan
+    
+    # Find or prompt for PFX
+    if (-not $PfxPath) {
+        $candidate = Join-Path $root "SideriseBadgePrinterCert.pfx"
+        if (Test-Path $candidate) { 
+            $PfxPath = $candidate 
+        } else {
+            Write-Host "    WARNING: No PFX certificate found. Use -PfxPath to specify one." -ForegroundColor Yellow
+            Write-Host "    Skipping code signing..." -ForegroundColor Yellow
+        }
+    }
+    
+    if ($PfxPath -and (Test-Path $PfxPath)) {
+        $signTool = Get-SignTool
+        if (-not $signTool) {
+            Write-Host "    WARNING: signtool.exe not found. Install Windows SDK." -ForegroundColor Yellow
+            Write-Host "    Skipping code signing..." -ForegroundColor Yellow
+        } else {
+            Write-Host "    SignTool: $signTool" -ForegroundColor Gray
+            Write-Host "    Certificate: $PfxPath" -ForegroundColor Gray
+            
+            # Import certificate
+            $thumbprint = Import-PfxToUserStore -Path $PfxPath -Password $PfxPassword
+            Write-Host "    Thumbprint: $thumbprint" -ForegroundColor Gray
+            
+            # Sign all EXE and DLL files
+            $filesToSign = Get-ChildItem $sourceDir -Include *.exe,*.dll -Recurse
+            $signedCount = 0
+            foreach ($file in $filesToSign) {
+                try {
+                    Invoke-Sign -SignTool $signTool -Thumb $thumbprint -Path $file.FullName -Timestamp $TimestampUrl
+                    $signedCount++
+                } catch {
+                    Write-Host "    WARNING: Failed to sign $($file.Name): $_" -ForegroundColor Yellow
+                }
+            }
+            Write-Host "    Signed $signedCount files" -ForegroundColor Green
+        }
+    }
+} else {
+    Write-Host "[3/7] Skipping code signing (-SkipSigning specified)..." -ForegroundColor Yellow
+}
+
 # Create install script
-Write-Host "[3/5] Creating install script..." -ForegroundColor Cyan
+Write-Host "[4/7] Creating install script..." -ForegroundColor Cyan
 $installScript = @"
 # Siderise Security Badge Printer - Install Script
 # Run with: powershell.exe -ExecutionPolicy Bypass -File Install.ps1
@@ -149,6 +249,18 @@ if (-not (Test-Path `$exePath)) {
 
 `$version = (Get-Item `$exePath).VersionInfo.FileVersion
 Write-Log "Verified: SecurityBadgePrinter.exe (v`$version)"
+
+# Set permissions for all users to read and execute
+try {
+    Write-Log "Setting file permissions..."
+    `$acl = Get-Acl `$installPath
+    `$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Users", "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow")
+    `$acl.SetAccessRule(`$rule)
+    Set-Acl -Path `$installPath -AclObject `$acl
+    Write-Log "Permissions set successfully"
+} catch {
+    Write-Log "WARNING: Failed to set permissions: `$(`$_.Exception.Message)"
+}
 
 # Create Start Menu shortcut
 try {
@@ -241,7 +353,7 @@ Exit 0
 $uninstallScript | Set-Content -Path (Join-Path $sourceDir "Uninstall.ps1") -Encoding UTF8
 
 # Package with IntuneWinAppUtil
-Write-Host "[4/5] Packaging with IntuneWinAppUtil.exe..." -ForegroundColor Cyan
+Write-Host "[5/7] Packaging with IntuneWinAppUtil.exe..." -ForegroundColor Cyan
 $intuneToolPath = "C:\Users\JEJ\OneDrive - SIDERISE\IT & Systems - IT Infrastructure and Operations - IT Infrastructure and Operations\Intune\Intune App Prep Tool\IntuneWinAppUtil.exe"
 
 if (-not (Test-Path $intuneToolPath)) {
@@ -258,7 +370,7 @@ if (-not $intunewinFile) { throw ".intunewin file not created" }
 Move-Item $intunewinFile.FullName (Join-Path $outputDir "SecurityBadgePrinter.intunewin") -Force
 
 # Create detection script
-Write-Host "[5/5] Creating detection script..." -ForegroundColor Cyan
+Write-Host "[6/7] Creating detection script..." -ForegroundColor Cyan
 $detectionScript = @"
 <#
 .SYNOPSIS
@@ -266,8 +378,8 @@ Detection script for Siderise Security Badge Printer
 
 .DESCRIPTION
 Checks if the application is installed and verifies the version.
-Returns exit code 0 if the application is installed with version $ver3 or higher.
-Returns exit code 1 if not installed or version is lower.
+Returns exit code 0 if the application is installed with version $ver exactly.
+Returns exit code 1 if not installed or version does not match.
 #>
 
 `$requiredVersion = [Version]"$ver"
@@ -289,8 +401,8 @@ foreach (`$path in `$installPaths) {
         if (`$foundVersion) {
             try {
                 `$installedVer = [Version]`$foundVersion
-                if (`$installedVer -ge `$requiredVersion) {
-                    Write-Host "Siderise Security Badge Printer version `$installedVer is installed at `$path (required: `$requiredVersion)"
+                if (`$installedVer -eq `$requiredVersion) {
+                    Write-Host "Siderise Security Badge Printer version `$installedVer is installed at `$path"
                     Exit 0
                 }
             } catch {
@@ -303,7 +415,7 @@ foreach (`$path in `$installPaths) {
 
 # If we found it but version is wrong
 if (`$foundPath) {
-    Write-Host "Installed version `$foundVersion is lower than required version `$requiredVersion"
+    Write-Host "Installed version `$foundVersion does not match required version `$requiredVersion"
     Exit 1
 }
 
@@ -372,13 +484,38 @@ To deploy a new version:
 4. The detection script will automatically detect version differences
 5. Intune will update devices to the new version
 
+## IMPORTANT: Defender ASR Exclusion Required
+
+If your organization uses Microsoft Defender Attack Surface Reduction (ASR) rules, you must add an exclusion for this application. Without this, Defender will block the executable from running.
+
+**Option 1: Via Intune Policy (Recommended for deployment)**
+1. Navigate to: Microsoft Intune admin center > Endpoint security > Attack surface reduction
+2. Create or edit an ASR policy
+3. Add exclusion for: ``C:\Program Files\Siderise\Security Badge Printer\SecurityBadgePrinter.exe``
+
+**Option 2: Via PowerShell (Local testing only)**
+```powershell
+Add-MpPreference -AttackSurfaceReductionOnlyExclusions "C:\Program Files\Siderise\Security Badge Printer\SecurityBadgePrinter.exe"
+```
+
 ## Notes:
+- The application is code-signed with a Siderise self-signed certificate
 - The application requires Azure AD configuration in appsettings.json
 - Ensure the Zebra ZC300 printer driver is installed on target devices
 - Users need appropriate Graph API permissions (User.Read, User.Read.All, Group.Read.All)
 "@
 
 $instructions | Set-Content -Path (Join-Path $outputDir "DEPLOYMENT_INSTRUCTIONS.md") -Encoding UTF8
+
+# Clean up certificate from store
+if ($thumbprint) {
+    Write-Host "[7/7] Cleaning up certificate from store..." -ForegroundColor Cyan
+    $certPath = "Cert:\CurrentUser\My\$thumbprint"
+    if (Test-Path $certPath) { 
+        Remove-Item $certPath -Force 
+        Write-Host "    Certificate removed" -ForegroundColor Gray
+    }
+}
 
 Write-Host ""
 Write-Host "SUCCESS" -ForegroundColor Green

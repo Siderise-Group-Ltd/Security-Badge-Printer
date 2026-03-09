@@ -1,6 +1,6 @@
-﻿# Siderise Security Badge Printer - Intune Deployment Instructions
+# Siderise Security Badge Printer - Intune Deployment Instructions
 
-## Version: 1.1.4
+## Version: 1.1.6
 
 ## Files in this package:
 - SecurityBadgePrinter.intunewin - The packaged application
@@ -17,7 +17,7 @@
    - Name: Siderise Security Badge Printer
    - Description: Professional security badge printing application for Siderise
    - Publisher: Siderise
-   - Version: 1.1.4
+   - Version: 1.1.6
 
 3. **Program Configuration**
    - Install command: 
@@ -55,7 +55,22 @@ To deploy a new version:
 4. The detection script will automatically detect version differences
 5. Intune will update devices to the new version
 
+## IMPORTANT: Defender ASR Exclusion Required
+
+If your organization uses Microsoft Defender Attack Surface Reduction (ASR) rules, you must add an exclusion for this application. Without this, Defender will block the executable from running.
+
+**Option 1: Via Intune Policy (Recommended for deployment)**
+1. Navigate to: Microsoft Intune admin center > Endpoint security > Attack surface reduction
+2. Create or edit an ASR policy
+3. Add exclusion for: `C:\Program Files\Siderise\Security Badge Printer\SecurityBadgePrinter.exe`
+
+**Option 2: Via PowerShell (Local testing only)**
+`powershell
+Add-MpPreference -AttackSurfaceReductionOnlyExclusions "C:\Program Files\Siderise\Security Badge Printer\SecurityBadgePrinter.exe"
+`
+
 ## Notes:
+- The application is code-signed with a Siderise self-signed certificate
 - The application requires Azure AD configuration in appsettings.json
 - Ensure the Zebra ZC300 printer driver is installed on target devices
 - Users need appropriate Graph API permissions (User.Read, User.Read.All, Group.Read.All)
