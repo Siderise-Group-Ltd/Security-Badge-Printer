@@ -80,33 +80,73 @@ Write-Host "[3/5] Creating install script..." -ForegroundColor Cyan
 $installScript = @"
 # Siderise Security Badge Printer - Install Script
 `$ErrorActionPreference = 'Stop'
+`$logPath = "`$env:ProgramData\Siderise\Logs"
+`$logFile = Join-Path `$logPath "SecurityBadgePrinter_Install.log"
 
-# Installation directory
-`$installPath = "`$env:ProgramFiles\Siderise\Security Badge Printer"
-
-# Create directory
-if (-not (Test-Path `$installPath)) {
-    New-Item -ItemType Directory -Path `$installPath -Force | Out-Null
+function Write-Log {
+    param([string]`$Message)
+    `$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    `$logMessage = "[`$timestamp] `$Message"
+    Write-Host `$logMessage
+    if (-not (Test-Path `$logPath)) {
+        New-Item -ItemType Directory -Path `$logPath -Force | Out-Null
+    }
+    Add-Content -Path `$logFile -Value `$logMessage
 }
 
-# Copy all files
-Copy-Item -Path "`$PSScriptRoot\*" -Destination `$installPath -Recurse -Force
-
-# Create Start Menu shortcut
-`$startMenuPath = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise"
-if (-not (Test-Path `$startMenuPath)) {
-    New-Item -ItemType Directory -Path `$startMenuPath -Force | Out-Null
+try {
+    Write-Log "Starting installation of Siderise Security Badge Printer"
+    
+    # Installation directory
+    `$installPath = "`$env:ProgramFiles\Siderise\Security Badge Printer"
+    Write-Log "Installation path: `$installPath"
+    
+    # Create directory
+    if (-not (Test-Path `$installPath)) {
+        Write-Log "Creating installation directory..."
+        New-Item -ItemType Directory -Path `$installPath -Force | Out-Null
+    } else {
+        Write-Log "Installation directory already exists"
+    }
+    
+    # Copy files (exclude install/uninstall scripts)
+    Write-Log "Copying application files..."
+    Get-ChildItem -Path "`$PSScriptRoot" -Exclude "Install.ps1", "Uninstall.ps1" | ForEach-Object {
+        Copy-Item -Path `$_.FullName -Destination `$installPath -Recurse -Force
+        Write-Log "  Copied: `$(`$_.Name)"
+    }
+    
+    # Verify main executable
+    `$exePath = Join-Path `$installPath "SecurityBadgePrinter.exe"
+    if (-not (Test-Path `$exePath)) {
+        throw "SecurityBadgePrinter.exe not found after copy"
+    }
+    `$version = (Get-Item `$exePath).VersionInfo.FileVersion
+    Write-Log "Verified: SecurityBadgePrinter.exe (v`$version)"
+    
+    # Create Start Menu shortcut
+    Write-Log "Creating Start Menu shortcut..."
+    `$startMenuPath = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise"
+    if (-not (Test-Path `$startMenuPath)) {
+        New-Item -ItemType Directory -Path `$startMenuPath -Force | Out-Null
+    }
+    
+    `$WshShell = New-Object -ComObject WScript.Shell
+    `$Shortcut = `$WshShell.CreateShortcut("`$startMenuPath\Security Badge Printer.lnk")
+    `$Shortcut.TargetPath = `$exePath
+    `$Shortcut.WorkingDirectory = `$installPath
+    `$Shortcut.Description = "Siderise Security Badge Printer"
+    `$Shortcut.Save()
+    Write-Log "Shortcut created successfully"
+    
+    Write-Log "Installation completed successfully"
+    Exit 0
+    
+} catch {
+    Write-Log "ERROR: Installation failed - `$(`$_.Exception.Message)"
+    Write-Log "Stack trace: `$(`$_.ScriptStackTrace)"
+    Exit 1
 }
-
-`$WshShell = New-Object -ComObject WScript.Shell
-`$Shortcut = `$WshShell.CreateShortcut("`$startMenuPath\Security Badge Printer.lnk")
-`$Shortcut.TargetPath = "`$installPath\SecurityBadgePrinter.exe"
-`$Shortcut.WorkingDirectory = `$installPath
-`$Shortcut.Description = "Siderise Security Badge Printer"
-`$Shortcut.Save()
-
-Write-Host "Installation completed successfully"
-Exit 0
 "@
 
 $installScript | Set-Content -Path (Join-Path $sourceDir "Install.ps1") -Encoding UTF8
@@ -115,23 +155,73 @@ $installScript | Set-Content -Path (Join-Path $sourceDir "Install.ps1") -Encodin
 $uninstallScript = @"
 # Siderise Security Badge Printer - Uninstall Script
 `$ErrorActionPreference = 'Stop'
+`$logPath = "`$env:ProgramData\Siderise\Logs"
+`$logFile = Join-Path `$logPath "SecurityBadgePrinter_Uninstall.log"
 
-# Installation directory
-`$installPath = "`$env:ProgramFiles\Siderise\Security Badge Printer"
-
-# Remove Start Menu shortcut
-`$shortcut = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise\Security Badge Printer.lnk"
-if (Test-Path `$shortcut) {
-    Remove-Item `$shortcut -Force
+function Write-Log {
+    param([string]`$Message)
+    `$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    `$logMessage = "[`$timestamp] `$Message"
+    Write-Host `$logMessage
+    if (-not (Test-Path `$logPath)) {
+        New-Item -ItemType Directory -Path `$logPath -Force | Out-Null
+    }
+    Add-Content -Path `$logFile -Value `$logMessage
 }
 
-# Remove installation directory
-if (Test-Path `$installPath) {
-    Remove-Item `$installPath -Recurse -Force
+try {
+    Write-Log "Starting uninstallation of Siderise Security Badge Printer"
+    
+    # Installation directory
+    `$installPath = "`$env:ProgramFiles\Siderise\Security Badge Printer"
+    
+    # Remove Start Menu shortcut
+    `$shortcut = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise\Security Badge Printer.lnk"
+    if (Test-Path `$shortcut) {
+        Write-Log "Removing Start Menu shortcut..."
+        Remove-Item `$shortcut -Force
+        Write-Log "Shortcut removed"
+    } else {
+        Write-Log "Start Menu shortcut not found (already removed or never created)"
+    }
+    
+    # Remove Siderise Start Menu folder if empty
+    `$startMenuPath = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise"
+    if (Test-Path `$startMenuPath) {
+        `$items = Get-ChildItem `$startMenuPath
+        if (`$items.Count -eq 0) {
+            Write-Log "Removing empty Siderise Start Menu folder..."
+            Remove-Item `$startMenuPath -Force
+        }
+    }
+    
+    # Remove installation directory
+    if (Test-Path `$installPath) {
+        Write-Log "Removing installation directory: `$installPath"
+        Remove-Item `$installPath -Recurse -Force
+        Write-Log "Installation directory removed"
+    } else {
+        Write-Log "Installation directory not found (already removed)"
+    }
+    
+    # Remove parent Siderise folder if empty
+    `$parentPath = "`$env:ProgramFiles\Siderise"
+    if (Test-Path `$parentPath) {
+        `$items = Get-ChildItem `$parentPath
+        if (`$items.Count -eq 0) {
+            Write-Log "Removing empty Siderise folder..."
+            Remove-Item `$parentPath -Force
+        }
+    }
+    
+    Write-Log "Uninstallation completed successfully"
+    Exit 0
+    
+} catch {
+    Write-Log "ERROR: Uninstallation failed - `$(`$_.Exception.Message)"
+    Write-Log "Stack trace: `$(`$_.ScriptStackTrace)"
+    Exit 1
 }
-
-Write-Host "Uninstallation completed successfully"
-Exit 0
 "@
 
 $uninstallScript | Set-Content -Path (Join-Path $sourceDir "Uninstall.ps1") -Encoding UTF8
