@@ -169,6 +169,15 @@ if (-not $SkipSigning) {
                 }
             }
             Write-Host "    Signed $signedCount files" -ForegroundColor Green
+            
+            # Export public certificate (.cer) for inclusion in package
+            $cert = Get-ChildItem -Path Cert:\CurrentUser\My | Where-Object { $_.Thumbprint -eq $thumbprint }
+            if ($cert) {
+                $cerPath = Join-Path $sourceDir "SideriseBadgePrinter.cer"
+                $certBytes = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+                [System.IO.File]::WriteAllBytes($cerPath, $certBytes)
+                Write-Host "    Exported certificate: SideriseBadgePrinter.cer" -ForegroundColor Green
+            }
         }
     }
 } else {
@@ -260,6 +269,24 @@ try {
     Write-Log "Permissions set successfully"
 } catch {
     Write-Log "WARNING: Failed to set permissions: `$(`$_.Exception.Message)"
+}
+
+# Import signing certificate to Trusted Publishers store
+try {
+    `$certPath = Join-Path `$installPath "SideriseBadgePrinter.cer"
+    if (Test-Path `$certPath) {
+        Write-Log "Importing signing certificate to Trusted Publishers..."
+        `$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(`$certPath)
+        `$store = New-Object System.Security.Cryptography.X509Certificates.X509Store("TrustedPublisher", "LocalMachine")
+        `$store.Open("ReadWrite")
+        `$store.Add(`$cert)
+        `$store.Close()
+        Write-Log "Certificate imported successfully: `$(`$cert.Subject)"
+    } else {
+        Write-Log "WARNING: Certificate file not found at `$certPath"
+    }
+} catch {
+    Write-Log "WARNING: Failed to import certificate: `$(`$_.Exception.Message)"
 }
 
 # Create Start Menu shortcut
