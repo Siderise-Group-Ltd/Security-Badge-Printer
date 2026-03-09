@@ -1,0 +1,485 @@
+<Window x:Class="SecurityBadgePrinter.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Siderise Security Badge Printer" Height="720" Width="1120" Loaded="OnWindowLoaded" Background="#F1F2F4"
+        Icon="Assets/favicon.png">
+    <Window.Resources>
+        <!-- Siderise Brand Colors (from Brand Guidelines 2025) -->
+        <SolidColorBrush x:Key="BrandNavyBrush" Color="#002751"/>        <!-- Navy Primary -->
+        <SolidColorBrush x:Key="BrandBlueBrush" Color="#0090D0"/>         <!-- Blue Primary -->
+        <SolidColorBrush x:Key="BrandDarkNavyBrush" Color="#000A28"/>     <!-- Dark Navy Filter -->
+        <SolidColorBrush x:Key="BrandBlueLight1Brush" Color="#84BDE1"/>   <!-- Blue Tint 1 -->
+        <SolidColorBrush x:Key="BrandBlueLight2Brush" Color="#CAE4F3"/>   <!-- Blue Tint 2 -->
+        <SolidColorBrush x:Key="BrandBlueLight3Brush" Color="#E5F2FA"/>   <!-- Blue Tint 3 -->
+        <SolidColorBrush x:Key="BrandNavyLight1Brush" Color="#76889D"/>   <!-- Navy Tint 1 -->
+        <SolidColorBrush x:Key="BrandNavyLight2Brush" Color="#C6CED6"/>   <!-- Navy Tint 2 -->
+        <SolidColorBrush x:Key="BrandNavyLight3Brush" Color="#E2E6EC"/>   <!-- Navy Tint 3 -->
+        <SolidColorBrush x:Key="BrandNavyLight4Brush" Color="#F1F2F4"/>   <!-- Navy Tint 4 -->
+        
+        <!-- Legacy aliases for compatibility -->
+        <SolidColorBrush x:Key="BrandDarkBrush" Color="#002751"/>
+        <SolidColorBrush x:Key="BrandAccentBrush" Color="#0090D0"/>
+        <SolidColorBrush x:Key="BannerBrush" Color="#002751"/>
+        <LinearGradientBrush x:Key="PreviewBgBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#FFFFFF" Offset="0"/>
+            <GradientStop Color="#F3F7FB" Offset="1"/>
+        </LinearGradientBrush>
+        
+        <!-- Brand Guidelines Typography -->
+        <Style TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Arial"/>  <!-- Secondary font per guidelines -->
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandNavyBrush}"/>
+        </Style>
+        <Style x:Key="HeadingText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandNavyBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+        <Style x:Key="SectionHeaderText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandBlueBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+        </Style>
+        <Style x:Key="StatusText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontStyle" Value="Italic"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandNavyLight1Brush}"/>
+        </Style>
+        <!-- Modern Button Styles -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#0090D0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Padding" Value="20,12"/>
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" CornerRadius="8" BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#007BB8"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#006BA3"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#C6CED6"/>
+                                <Setter Property="Foreground" Value="#76889D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource BrandNavyLight3Brush}"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandNavyBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrandNavyLight2Brush}"/>
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" CornerRadius="6" BorderThickness="1">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BrandNavyLight2Brush}"/>
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource BrandNavyLight1Brush}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource BrandNavyLight1Brush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Modern Input Styles -->
+        <Style TargetType="TextBox">
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrandNavyLight2Brush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandNavyBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="false" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrandBlueBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrandBlueBrush}"/>
+                                <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <Style TargetType="ComboBox">
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrandNavyLight2Brush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource BrandNavyBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Focusable="False" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" ClickMode="Press">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition/>
+                                                    <ColumnDefinition Width="30"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Path x:Name="Arrow" Grid.Column="1" Fill="{StaticResource BrandNavyBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Data="M 0 0 L 4 4 L 8 0 Z"/>
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="true">
+                                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrandBlueBrush}"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ContentSite" IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" Margin="12,8,35,8" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            <TextBox x:Name="PART_EditableTextBox" Style="{x:Null}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,8,35,8" Focusable="True" Background="Transparent" Visibility="Hidden" IsReadOnly="{TemplateBinding IsReadOnly}" BorderThickness="0"/>
+                            <Popup x:Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Grid x:Name="DropDown" SnapsToDevicePixels="True" MinWidth="{TemplateBinding ActualWidth}" MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border x:Name="DropDownBorder" Background="White" BorderThickness="1" BorderBrush="{StaticResource BrandNavyLight2Brush}" CornerRadius="4">
+                                        <ScrollViewer Margin="4,6,4,6" SnapsToDevicePixels="True">
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Grid>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEditable" Value="true">
+                                <Setter Property="IsTabStop" Value="false"/>
+                                <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="ContentSite" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <Style TargetType="ListBox">
+            <Setter Property="FontFamily" Value="Arial"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrandNavyLight2Brush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+
+        <!-- Modern ListBox item style -->
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="0,1,0,1"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="border" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource BrandBlueLight3Brush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrandBlueLight2Brush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource BrandBlueLight2Brush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource BrandBlueBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Modern Custom ScrollBar Styles -->
+        <Style x:Key="ModernScrollBarThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="ThumbBorder" CornerRadius="6" Width="8" HorizontalAlignment="Center" Background="#0090D0" Opacity="0.7">
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Opacity" Value="0.9"/>
+                                <Setter TargetName="ThumbBorder" Property="Width" Value="10"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="ThumbBorder" Property="Opacity" Value="1"/>
+                                <Setter TargetName="ThumbBorder" Property="Background" Value="#002751"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernScrollBar" TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid x:Name="GridRoot" Width="16" Background="Transparent">
+                            <Border x:Name="TrackBorder" CornerRadius="6" Width="6" HorizontalAlignment="Center" 
+                                    Background="#F1F2F4" Margin="0,4"/>
+                            <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource ModernScrollBarThumb}"/>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
+                                </Track.DecreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ModernScrollViewer" TargetType="ScrollViewer">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid x:Name="Grid" Background="{TemplateBinding Background}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" 
+                                                    Grid.Column="0" Grid.Row="0"
+                                                    Content="{TemplateBinding Content}" 
+                                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                    CanContentScroll="{TemplateBinding CanContentScroll}"
+                                                    Margin="{TemplateBinding Padding}"/>
+                            <ScrollBar x:Name="PART_VerticalScrollBar" 
+                                       Grid.Column="1" Grid.Row="0"
+                                       Style="{StaticResource ModernScrollBar}"
+                                       Orientation="Vertical"
+                                       Value="{TemplateBinding VerticalOffset}"
+                                       Maximum="{TemplateBinding ScrollableHeight}"
+                                       ViewportSize="{TemplateBinding ViewportHeight}"
+                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                       Margin="4,0,0,0"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </Window.Resources>
+    <Grid Margin="0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />  <!-- Banner -->
+            <RowDefinition Height="Auto" />  <!-- Search -->
+            <RowDefinition Height="*" />    <!-- Content -->
+            <RowDefinition Height="Auto" />  <!-- Actions -->
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Clean Modern Header -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Padding="24,12" Background="#002751">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Grid.Column="0" VerticalAlignment="Center">
+                    <Border Background="White" CornerRadius="8" Padding="8" Margin="0,0,20,0">
+                        <Image Source="Assets/Logo.png" Height="36" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Border>
+                    <TextBlock Text=" | Security Badge Printer" Foreground="White" FontSize="18" FontFamily="Arial" FontWeight="SemiBold" VerticalAlignment="Center" Height="52" TextAlignment="Left" Padding="0,16,0,16"/>
+                </StackPanel>
+                <TextBlock x:Name="VersionText" Grid.Column="2" Foreground="#84BDE1" FontFamily="Arial" FontSize="11" VerticalAlignment="Center" Opacity="0.8"/>
+            </Grid>
+        </Border>
+
+        <!-- Clean Filter Panel -->
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="24,8,24,16" Background="White" CornerRadius="12" Padding="20,16" BorderThickness="1" BorderBrush="#E2E6EC">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="1.5*"/>
+                    <ColumnDefinition Width="1.5*"/>
+                    <ColumnDefinition Width="1.5*"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                    <TextBlock Text="Search Employee" FontSize="13" FontWeight="Medium" Foreground="#002751" Margin="0,0,0,6"/>
+                    <TextBox x:Name="SearchBox" Height="40" TextChanged="OnFilterTextChanged" VerticalContentAlignment="Center" FontSize="14" Padding="12,8"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                    <TextBlock Text="Department" FontSize="13" FontWeight="Medium" Foreground="#002751" Margin="0,0,0,6"/>
+                    <ComboBox x:Name="DepartmentBox" Height="40" IsEditable="True" IsTextSearchEnabled="True" SelectionChanged="OnFilterSelectionChanged" DropDownClosed="OnDepartmentClosed" VerticalContentAlignment="Center" FontSize="14"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="2" Margin="0,0,16,0">
+                    <TextBlock Text="Job Title" FontSize="13" FontWeight="Medium" Foreground="#002751" Margin="0,0,0,6"/>
+                    <ComboBox x:Name="JobTitleBox" Height="40" IsEditable="True" IsTextSearchEnabled="True" SelectionChanged="OnFilterSelectionChanged" DropDownClosed="OnTitleClosed" VerticalContentAlignment="Center" FontSize="14"/>
+                </StackPanel>
+                
+                <StackPanel Grid.Column="3">
+                    <TextBlock Text="Office Location" FontSize="13" FontWeight="Medium" Foreground="#002751" Margin="0,0,0,6"/>
+                    <ComboBox x:Name="OfficeBox" Height="40" IsEditable="True" IsTextSearchEnabled="True" SelectionChanged="OnFilterSelectionChanged" VerticalContentAlignment="Center" FontSize="14"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Employee Directory Panel -->
+        <Border Grid.Row="2" Grid.Column="0" Margin="24,0,12,0" Background="White" CornerRadius="12" Padding="24,20" BorderThickness="1" BorderBrush="#E2E6EC">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Employee Directory" FontSize="18" FontWeight="SemiBold" Foreground="#002751" Margin="0,0,0,16"/>
+                <ScrollViewer Grid.Row="1" Style="{StaticResource ModernScrollViewer}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False" PanningMode="VerticalOnly">
+                    <ListBox x:Name="ResultsList" DisplayMemberPath="Display" SelectionMode="Extended" SelectionChanged="OnResultSelected" BorderThickness="0" Background="Transparent" ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="False" Padding="0" Margin="0"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Badge Preview Panel -->
+        <Border Grid.Row="2" Grid.Column="1" Margin="12,0,24,0" Background="White" CornerRadius="12" Padding="24,20" BorderThickness="1" BorderBrush="#E2E6EC">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Badge Preview" FontSize="18" FontWeight="SemiBold" Foreground="#002751" Margin="0,0,0,16"/>
+                <Border Grid.Row="1" Background="Transparent" CornerRadius="8" Padding="12">
+                    <ScrollViewer x:Name="PreviewScroller" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" SizeChanged="OnPreviewAreaSizeChanged" MinHeight="400" Padding="0,0,0,8" CanContentScroll="False" PanningMode="VerticalOnly">
+                        <Border x:Name="PreviewFrame" BorderBrush="#002751" BorderThickness="2" CornerRadius="8" Background="#FFFFFF" Padding="8" Margin="0" HorizontalAlignment="Center" VerticalAlignment="Top" SnapsToDevicePixels="True" UseLayoutRounding="True">
+                            <Grid>
+                                <!-- Single preview image (centered and scaled uniformly) -->
+                                <Viewbox x:Name="SinglePreviewBox" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" Margin="0"
+                                         MaxWidth="{Binding ElementName=PreviewScroller, Path=ViewportWidth}"
+                                         MaxHeight="{Binding ElementName=PreviewScroller, Path=ViewportHeight}">
+                                    <Image x:Name="PreviewImage" Stretch="Uniform" SnapsToDevicePixels="True" Loaded="OnPreviewImageLoaded"/>
+                                </Viewbox>
+
+                                <!-- Up to 6 previews in a 2x3 grid -->
+                                <ItemsControl x:Name="PreviewItems" Visibility="Collapsed" HorizontalAlignment="Stretch" VerticalAlignment="Top" Margin="0" SnapsToDevicePixels="True" UseLayoutRounding="True">
+                                    <ItemsControl.LayoutTransform>
+                                        <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                                    </ItemsControl.LayoutTransform>
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                            <Setter Property="VerticalAlignment" Value="Stretch"/>
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Rows="2" Columns="3"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{StaticResource BrandNavyBrush}" BorderThickness="2" CornerRadius="0" Padding="4" Margin="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SnapsToDevicePixels="True" UseLayoutRounding="True">
+                                                <Viewbox Stretch="Uniform">
+                                                    <Image Source="{Binding}" Stretch="Uniform" SnapsToDevicePixels="True"/>
+                                                </Viewbox>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- List of names when too many to preview -->
+                                <Grid x:Name="PreviewNamesContainer" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock x:Name="PreviewNamesHeader" Text="" HorizontalAlignment="Center" FontFamily="Arial" FontSize="28" FontWeight="Bold" Margin="0,0,0,12" Grid.Row="0"/>
+                                    <ScrollViewer x:Name="PreviewNamesScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Grid.Row="1">
+                                        <ItemsControl x:Name="PreviewNamesPanel">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Vertical" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding}" FontFamily="Arial" FontSize="26" Margin="8,6"/>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Modern Action Bar -->
+        <Border Grid.Row="3" Grid.ColumnSpan="2" Margin="24,12,24,24" Background="#F8F9FA" CornerRadius="12" Padding="24,16" BorderThickness="1" BorderBrush="#E2E6EC">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0" VerticalAlignment="Center" FontSize="14" Foreground="#76889D" Margin="0,0,12,0"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="PrintSelectedButton" Content="Batch Print" Width="140" Height="44" Click="OnPrintSelectedClick" IsEnabled="False" Margin="0,0,12,0" Style="{StaticResource PrimaryButton}" FontWeight="SemiBold"/>
+                    <Button x:Name="PrintButton" Content="Print Badge" Width="130" Height="44" Click="OnPrintClick" IsEnabled="False" Style="{StaticResource PrimaryButton}" FontWeight="SemiBold"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SecurityBadgePrinter</AssemblyName>
+    <RootNamespace>SecurityBadgePrinter</RootNamespace>
+    <AssemblyTitle>Siderise Security Badge Printer</AssemblyTitle>
+    <AssemblyDescription>Professional security badge printing application for Siderise</AssemblyDescription>
+    <AssemblyCompany>Siderise</AssemblyCompany>
+    <AssemblyProduct>Siderise Security Badge Printer</AssemblyProduct>
+    <AssemblyCopyright>© Siderise. All rights reserved.</AssemblyCopyright>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <!-- Embed app icon into EXE if an .ico is available -->
+    <ApplicationIcon Condition="Exists('Assets\\logo.ico')">Assets\logo.ico</ApplicationIcon>
+    <ApplicationIcon Condition="Exists('Assets\\AppIcon.ico')">Assets\AppIcon.ico</ApplicationIcon>
+    <ApplicationIcon Condition="Exists('Assets\\favicon.ico')">Assets\favicon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Graph" Version="5.62.0" />
+    <PackageReference Include="Azure.Identity" Version="1.12.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.2" />
+    <PackageReference Include="SkiaSharp" Version="2.88.7" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="2.88.7" />
+    <PackageReference Include="QRCoder" Version="1.4.3" />
+    <PackageReference Include="Serilog" Version="3.1.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Resource Include="Assets\Logo.png" Condition="Exists('Assets\\Logo.png')" />
+    <Resource Include="Assets\Logo - White.png" Condition="Exists('Assets\\Logo - White.png')" />
+    <Resource Include="Assets\favicon.png" Condition="Exists('Assets\\favicon.png')" />
+    <None Include="Assets\logo.ico" Condition="Exists('Assets\\logo.ico')" />
+    <None Include="Assets\AppIcon.ico" Condition="Exists('Assets\\AppIcon.ico')" />
+    <None Include="Assets\favicon.ico" Condition="Exists('Assets\\favicon.ico')" />
+  </ItemGroup>
+</Project>
