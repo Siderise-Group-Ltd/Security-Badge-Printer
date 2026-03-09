@@ -270,7 +270,7 @@ Returns exit code 0 if the application is installed with version $ver3 or higher
 Returns exit code 1 if not installed or version is lower.
 #>
 
-`$requiredVersion = [Version]"$ver3"
+`$requiredVersion = [Version]"$ver"
 
 # Check both possible installation paths (64-bit and 32-bit redirected)
 `$installPaths = @(
@@ -287,10 +287,14 @@ foreach (`$path in `$installPaths) {
         `$foundPath = `$path
         `$foundVersion = (Get-Item `$path).VersionInfo.FileVersion
         if (`$foundVersion) {
-            `$installedVer = [Version](`$foundVersion -replace '^(\d+\.\d+\.\d+).*','`$1')
-            if (`$installedVer -ge `$requiredVersion) {
-                Write-Host "Siderise Security Badge Printer version `$installedVer is installed at `$path (required: `$requiredVersion)"
-                Exit 0
+            try {
+                `$installedVer = [Version]`$foundVersion
+                if (`$installedVer -ge `$requiredVersion) {
+                    Write-Host "Siderise Security Badge Printer version `$installedVer is installed at `$path (required: `$requiredVersion)"
+                    Exit 0
+                }
+            } catch {
+                Write-Host "Could not parse version: `$foundVersion"
             }
         }
         break
