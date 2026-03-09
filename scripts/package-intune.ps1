@@ -284,16 +284,27 @@ try {
     Write-Log "WARNING: Failed to set permissions: `$(`$_.Exception.Message)"
 }
 
-# Import signing certificate to Trusted Publishers store
+# Import signing certificate to certificate stores for trust
 try {
     `$certPath = Join-Path `$installPath "SideriseBadgePrinter.cer"
     if (Test-Path `$certPath) {
-        Write-Log "Importing signing certificate to Trusted Publishers..."
+        Write-Log "Importing signing certificate..."
         `$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(`$certPath)
-        `$store = New-Object System.Security.Cryptography.X509Certificates.X509Store("TrustedPublisher", "LocalMachine")
-        `$store.Open("ReadWrite")
-        `$store.Add(`$cert)
-        `$store.Close()
+        
+        # Add to Trusted Root Certification Authorities (for trust chain)
+        `$rootStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
+        `$rootStore.Open("ReadWrite")
+        `$rootStore.Add(`$cert)
+        `$rootStore.Close()
+        Write-Log "Certificate added to Trusted Root store"
+        
+        # Add to Trusted Publishers (for code signing)
+        `$pubStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("TrustedPublisher", "LocalMachine")
+        `$pubStore.Open("ReadWrite")
+        `$pubStore.Add(`$cert)
+        `$pubStore.Close()
+        Write-Log "Certificate added to Trusted Publisher store"
+        
         Write-Log "Certificate imported successfully: `$(`$cert.Subject)"
     } else {
         Write-Log "WARNING: Certificate file not found at `$certPath"
