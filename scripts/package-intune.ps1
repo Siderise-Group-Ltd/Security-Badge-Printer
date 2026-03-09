@@ -79,74 +79,96 @@ Write-Host "    Version: $ver3" -ForegroundColor Green
 Write-Host "[3/5] Creating install script..." -ForegroundColor Cyan
 $installScript = @"
 # Siderise Security Badge Printer - Install Script
-`$ErrorActionPreference = 'Stop'
+# Run with: powershell.exe -ExecutionPolicy Bypass -File Install.ps1
+
+`$ErrorActionPreference = 'Continue'
+
+# Force 64-bit Program Files path (avoid x86 redirection)
+`$programFiles = "C:\Program Files"
+`$installPath = "`$programFiles\Siderise\Security Badge Printer"
 `$logPath = "`$env:ProgramData\Siderise\Logs"
-`$logFile = Join-Path `$logPath "SecurityBadgePrinter_Install.log"
+`$logFile = "`$logPath\SecurityBadgePrinter_Install.log"
+
+# Ensure log directory exists
+try {
+    if (-not (Test-Path `$logPath)) { New-Item -ItemType Directory -Path `$logPath -Force | Out-Null }
+} catch {
+    `$logFile = "`$env:TEMP\SecurityBadgePrinter_Install.log"
+}
 
 function Write-Log {
     param([string]`$Message)
     `$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     `$logMessage = "[`$timestamp] `$Message"
-    Write-Host `$logMessage
-    if (-not (Test-Path `$logPath)) {
-        New-Item -ItemType Directory -Path `$logPath -Force | Out-Null
-    }
-    Add-Content -Path `$logFile -Value `$logMessage
+    try { Add-Content -Path `$logFile -Value `$logMessage -ErrorAction SilentlyContinue } catch {}
+    Write-Output `$logMessage
 }
 
+Write-Log "=== Siderise Security Badge Printer Installation ==="
+Write-Log "Log file: `$logFile"
+Write-Log "Install path: `$installPath"
+
+# Create installation directory
 try {
-    Write-Log "Starting installation of Siderise Security Badge Printer"
-    
-    # Installation directory
-    `$installPath = "`$env:ProgramFiles\Siderise\Security Badge Printer"
-    Write-Log "Installation path: `$installPath"
-    
-    # Create directory
     if (-not (Test-Path `$installPath)) {
-        Write-Log "Creating installation directory..."
         New-Item -ItemType Directory -Path `$installPath -Force | Out-Null
+        Write-Log "Created directory: `$installPath"
     } else {
-        Write-Log "Installation directory already exists"
+        Write-Log "Directory exists: `$installPath"
     }
-    
-    # Copy files (exclude install/uninstall scripts)
-    Write-Log "Copying application files..."
-    Get-ChildItem -Path "`$PSScriptRoot" -Exclude "Install.ps1", "Uninstall.ps1" | ForEach-Object {
-        Copy-Item -Path `$_.FullName -Destination `$installPath -Recurse -Force
-        Write-Log "  Copied: `$(`$_.Name)"
+} catch {
+    Write-Log "ERROR creating directory: `$(`$_.Exception.Message)"
+    Exit 1
+}
+
+# Copy application files
+try {
+    Write-Log "Copying files from `$PSScriptRoot..."
+    `$filesCopied = 0
+    Get-ChildItem -Path "`$PSScriptRoot" -File | Where-Object { `$_.Name -notin @("Install.ps1", "Uninstall.ps1") } | ForEach-Object {
+        try {
+            Copy-Item -Path `$_.FullName -Destination `$installPath -Force -ErrorAction Stop
+            Write-Log "  Copied: `$(`$_.Name)"
+            `$filesCopied++
+        } catch {
+            Write-Log "  ERROR copying `$(`$_.Name): `$(`$_.Exception.Message)"
+        }
     }
-    
-    # Verify main executable
-    `$exePath = Join-Path `$installPath "SecurityBadgePrinter.exe"
-    if (-not (Test-Path `$exePath)) {
-        throw "SecurityBadgePrinter.exe not found after copy"
-    }
-    `$version = (Get-Item `$exePath).VersionInfo.FileVersion
-    Write-Log "Verified: SecurityBadgePrinter.exe (v`$version)"
-    
-    # Create Start Menu shortcut
-    Write-Log "Creating Start Menu shortcut..."
+    Write-Log "Total files copied: `$filesCopied"
+} catch {
+    Write-Log "ERROR during file copy: `$(`$_.Exception.Message)"
+    Exit 1
+}
+
+# Verify executable
+`$exePath = Join-Path `$installPath "SecurityBadgePrinter.exe"
+if (-not (Test-Path `$exePath)) {
+    Write-Log "ERROR: SecurityBadgePrinter.exe not found at `$exePath"
+    Exit 1
+}
+
+`$version = (Get-Item `$exePath).VersionInfo.FileVersion
+Write-Log "Verified: SecurityBadgePrinter.exe (v`$version)"
+
+# Create Start Menu shortcut
+try {
     `$startMenuPath = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise"
     if (-not (Test-Path `$startMenuPath)) {
         New-Item -ItemType Directory -Path `$startMenuPath -Force | Out-Null
     }
-    
     `$WshShell = New-Object -ComObject WScript.Shell
     `$Shortcut = `$WshShell.CreateShortcut("`$startMenuPath\Security Badge Printer.lnk")
     `$Shortcut.TargetPath = `$exePath
     `$Shortcut.WorkingDirectory = `$installPath
     `$Shortcut.Description = "Siderise Security Badge Printer"
     `$Shortcut.Save()
-    Write-Log "Shortcut created successfully"
-    
-    Write-Log "Installation completed successfully"
-    Exit 0
-    
+    Write-Log "Shortcut created"
 } catch {
-    Write-Log "ERROR: Installation failed - `$(`$_.Exception.Message)"
-    Write-Log "Stack trace: `$(`$_.ScriptStackTrace)"
-    Exit 1
+    Write-Log "WARNING: Shortcut failed: `$(`$_.Exception.Message)"
 }
+
+Write-Log "=== Installation completed successfully ==="
+Exit 0
 "@
 
 $installScript | Set-Content -Path (Join-Path $sourceDir "Install.ps1") -Encoding UTF8
@@ -154,74 +176,66 @@ $installScript | Set-Content -Path (Join-Path $sourceDir "Install.ps1") -Encodin
 # Create uninstall script
 $uninstallScript = @"
 # Siderise Security Badge Printer - Uninstall Script
-`$ErrorActionPreference = 'Stop'
+`$ErrorActionPreference = 'Continue'
+
+# Check both possible installation paths
+`$installPaths = @(
+    "C:\Program Files\Siderise\Security Badge Printer",
+    "C:\Program Files (x86)\Siderise\Security Badge Printer"
+)
+
 `$logPath = "`$env:ProgramData\Siderise\Logs"
-`$logFile = Join-Path `$logPath "SecurityBadgePrinter_Uninstall.log"
+`$logFile = "`$logPath\SecurityBadgePrinter_Uninstall.log"
+
+try {
+    if (-not (Test-Path `$logPath)) { New-Item -ItemType Directory -Path `$logPath -Force | Out-Null }
+} catch {
+    `$logFile = "`$env:TEMP\SecurityBadgePrinter_Uninstall.log"
+}
 
 function Write-Log {
     param([string]`$Message)
     `$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     `$logMessage = "[`$timestamp] `$Message"
-    Write-Host `$logMessage
-    if (-not (Test-Path `$logPath)) {
-        New-Item -ItemType Directory -Path `$logPath -Force | Out-Null
-    }
-    Add-Content -Path `$logFile -Value `$logMessage
+    try { Add-Content -Path `$logFile -Value `$logMessage -ErrorAction SilentlyContinue } catch {}
+    Write-Output `$logMessage
 }
 
-try {
-    Write-Log "Starting uninstallation of Siderise Security Badge Printer"
-    
-    # Installation directory
-    `$installPath = "`$env:ProgramFiles\Siderise\Security Badge Printer"
-    
-    # Remove Start Menu shortcut
-    `$shortcut = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise\Security Badge Printer.lnk"
-    if (Test-Path `$shortcut) {
-        Write-Log "Removing Start Menu shortcut..."
-        Remove-Item `$shortcut -Force
-        Write-Log "Shortcut removed"
-    } else {
-        Write-Log "Start Menu shortcut not found (already removed or never created)"
-    }
-    
-    # Remove Siderise Start Menu folder if empty
-    `$startMenuPath = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise"
-    if (Test-Path `$startMenuPath) {
-        `$items = Get-ChildItem `$startMenuPath
-        if (`$items.Count -eq 0) {
-            Write-Log "Removing empty Siderise Start Menu folder..."
-            Remove-Item `$startMenuPath -Force
-        }
-    }
-    
-    # Remove installation directory
-    if (Test-Path `$installPath) {
-        Write-Log "Removing installation directory: `$installPath"
-        Remove-Item `$installPath -Recurse -Force
-        Write-Log "Installation directory removed"
-    } else {
-        Write-Log "Installation directory not found (already removed)"
-    }
-    
-    # Remove parent Siderise folder if empty
-    `$parentPath = "`$env:ProgramFiles\Siderise"
-    if (Test-Path `$parentPath) {
-        `$items = Get-ChildItem `$parentPath
-        if (`$items.Count -eq 0) {
-            Write-Log "Removing empty Siderise folder..."
-            Remove-Item `$parentPath -Force
-        }
-    }
-    
-    Write-Log "Uninstallation completed successfully"
-    Exit 0
-    
-} catch {
-    Write-Log "ERROR: Uninstallation failed - `$(`$_.Exception.Message)"
-    Write-Log "Stack trace: `$(`$_.ScriptStackTrace)"
-    Exit 1
+Write-Log "=== Uninstallation Started ==="
+
+# Remove shortcuts
+`$shortcut = "`$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Siderise\Security Badge Printer.lnk"
+if (Test-Path `$shortcut) {
+    Remove-Item `$shortcut -Force
+    Write-Log "Removed Start Menu shortcut"
 }
+
+# Remove from both possible paths
+foreach (`$path in `$installPaths) {
+    if (Test-Path `$path) {
+        try {
+            Remove-Item `$path -Recurse -Force
+            Write-Log "Removed: `$path"
+        } catch {
+            Write-Log "ERROR removing `$path: `$(`$_.Exception.Message)"
+        }
+    }
+}
+
+# Clean up empty parent folders
+`$parentPaths = @("C:\Program Files\Siderise", "C:\Program Files (x86)\Siderise")
+foreach (`$parent in `$parentPaths) {
+    if (Test-Path `$parent) {
+        `$items = Get-ChildItem `$parent -ErrorAction SilentlyContinue
+        if (`$items.Count -eq 0) {
+            Remove-Item `$parent -Force
+            Write-Log "Removed empty folder: `$parent"
+        }
+    }
+}
+
+Write-Log "=== Uninstallation completed ==="
+Exit 0
 "@
 
 $uninstallScript | Set-Content -Path (Join-Path $sourceDir "Uninstall.ps1") -Encoding UTF8
@@ -256,21 +270,37 @@ Returns exit code 0 if the application is installed with version $ver3 or higher
 Returns exit code 1 if not installed or version is lower.
 #>
 
-`$installPath = "`$env:ProgramFiles\Siderise\Security Badge Printer\SecurityBadgePrinter.exe"
 `$requiredVersion = [Version]"$ver3"
 
-if (Test-Path `$installPath) {
-    `$installedVersion = (Get-Item `$installPath).VersionInfo.FileVersion
-    if (`$installedVersion) {
-        `$installedVer = [Version](`$installedVersion -replace '^(\d+\.\d+\.\d+).*','`$1')
-        if (`$installedVer -ge `$requiredVersion) {
-            Write-Host "Siderise Security Badge Printer version `$installedVer is installed (required: `$requiredVersion)"
-            Exit 0
-        } else {
-            Write-Host "Installed version `$installedVer is lower than required version `$requiredVersion"
-            Exit 1
+# Check both possible installation paths (64-bit and 32-bit redirected)
+`$installPaths = @(
+    "C:\Program Files\Siderise\Security Badge Printer\SecurityBadgePrinter.exe",
+    "C:\Program Files (x86)\Siderise\Security Badge Printer\SecurityBadgePrinter.exe",
+    "`$env:ProgramFiles\Siderise\Security Badge Printer\SecurityBadgePrinter.exe"
+)
+
+`$foundPath = `$null
+`$foundVersion = `$null
+
+foreach (`$path in `$installPaths) {
+    if (Test-Path `$path) {
+        `$foundPath = `$path
+        `$foundVersion = (Get-Item `$path).VersionInfo.FileVersion
+        if (`$foundVersion) {
+            `$installedVer = [Version](`$foundVersion -replace '^(\d+\.\d+\.\d+).*','`$1')
+            if (`$installedVer -ge `$requiredVersion) {
+                Write-Host "Siderise Security Badge Printer version `$installedVer is installed at `$path (required: `$requiredVersion)"
+                Exit 0
+            }
         }
+        break
     }
+}
+
+# If we found it but version is wrong
+if (`$foundPath) {
+    Write-Host "Installed version `$foundVersion is lower than required version `$requiredVersion"
+    Exit 1
 }
 
 Write-Host "Siderise Security Badge Printer is not installed"
