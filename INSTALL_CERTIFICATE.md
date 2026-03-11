@@ -7,7 +7,7 @@
 
 ```powershell
 # Import to Trusted Root Certification Authorities
-$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2("C:\Users\JEJ\OneDrive - SIDERISE\Documents\Projects\Card Printer\SideriseBadgePrinter.cer")
+$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(".\SideriseBadgePrinter.cer")
 $rootStore = New-Object System.Security.Cryptography.X509Certificates.X509Store("Root", "LocalMachine")
 $rootStore.Open("ReadWrite")
 $rootStore.Add($cert)
